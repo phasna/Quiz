@@ -1,6 +1,8 @@
 const express = require('express');
 const cors = require('cors');
 const path = require('path');
+const mediaRouter = require('./routes/media');
+const prisma = require('./lib/prisma');
 
 const app = express();
 const port = 3000;
@@ -9,38 +11,36 @@ app.use(cors());
 app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public')));
 
-// Questions (tu peux en ajouter facilement)
-let questions = [
-  {
-    id: 1,
-    question: "Quelle est la capitale de la France ?",
-    options: ["Lyon", "Paris", "Marseille", "Toulouse"],
-    answer: "Paris"
-  },
-  {
-    id: 2,
-    question: "Combien font 8 + 5 ?",
-    options: ["10", "12", "13", "15"],
-    answer: "13"
-  },
-  {
-    id: 3,
-    question: "Qui a peint la Joconde ?",
-    options: ["Picasso", "Van Gogh", "Léonard de Vinci", "Monet"],
-    answer: "Léonard de Vinci"
-  }
-];
+app.use('/api/media', mediaRouter);
 
 // Route pour récupérer toutes les questions (sans la bonne réponse, pour ne pas tricher)
-app.get('/api/questions', (req, res) => {
-  const questionsSansReponse = questions.map(({ id, question, options }) => ({ id, question, options }));
-  res.json(questionsSansReponse);
+app.get('/api/questions', async (req, res) => {
+  const questions = await prisma.question.findMany({
+    select: { id: true, question: true, options: true, imageUrl: true },
+    orderBy: { id: 'asc' }
+  });
+  res.json(questions);
+});
+
+// Route pour associer une image (déjà uploadée via /api/media/upload) à une question
+app.patch('/api/questions/:id/image', async (req, res) => {
+  const { imageUrl } = req.body;
+
+  try {
+    const question = await prisma.question.update({
+      where: { id: Number(req.params.id) },
+      data: { imageUrl: imageUrl || null }
+    });
+    res.json(question);
+  } catch (err) {
+    res.status(404).json({ error: 'Question non trouvée' });
+  }
 });
 
 // Route pour soumettre une réponse
-app.post('/api/submit', (req, res) => {
+app.post('/api/submit', async (req, res) => {
   const { questionId, selectedAnswer } = req.body;
-  const question = questions.find(q => q.id === questionId);
+  const question = await prisma.question.findUnique({ where: { id: questionId } });
 
   if (!question) return res.status(404).json({ error: "Question non trouvée" });
 

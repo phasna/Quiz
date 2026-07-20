@@ -23,6 +23,14 @@ function showQuestion() {
   document.getElementById('question-text').textContent = q.question;
   document.getElementById('current').textContent = currentQuestionIndex + 1;
 
+  const imageEl = document.getElementById('question-image');
+  if (q.imageUrl) {
+    imageEl.src = `http://localhost:3000${q.imageUrl}`;
+    imageEl.classList.remove('hidden');
+  } else {
+    imageEl.classList.add('hidden');
+  }
+
   const optionsDiv = document.getElementById('options');
   optionsDiv.innerHTML = '';
 
