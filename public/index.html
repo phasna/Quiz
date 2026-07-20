@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Quiz Game</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="container">
+    <h1>🎮 Quiz Game</h1>
+
+    <div id="start-screen">
+      <button onclick="startQuiz()">Commencer le Quiz</button>
+    </div>
+
+    <div id="quiz-screen" class="hidden">
+      <div id="question-container">
+        <h2 id="question-text"></h2>
+        <div id="options"></div>
+      </div>
+      <p>Question <span id="current">1</span>/<span id="total">0</span></p>
+    </div>
+
+    <div id="result-screen" class="hidden">
+      <h2>Ton score : <span id="score-final">0</span>/<span id="total-questions">0</span></h2>
+      <button onclick="restartQuiz()">Recommencer</button>
+    </div>
+  </div>
+
+  <script src="script.js"></script>
+</body>
+</html>
