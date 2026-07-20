@@ -32,6 +32,8 @@ model User {
   avatarId  Int?     @unique
   avatar    Media?   @relation(fields: [avatarId], references: [id])
   createdAt DateTime @default(now())
+
+  answers   Answer[]
 }
 
 model Question {
@@ -41,4 +43,17 @@ model Question {
   answer    String
   imageUrl  String?
   createdAt DateTime @default(now())
+
+  answers   Answer[]
+}
+
+model Answer {
+  id             Int      @id @default(autoincrement())
+  questionId     Int
+  question       Question @relation(fields: [questionId], references: [id])
+  userId         Int?
+  user           User?    @relation(fields: [userId], references: [id])
+  selectedAnswer String
+  isCorrect      Boolean
+  createdAt      DateTime @default(now())
 }

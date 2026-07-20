@@ -1,4 +1,5 @@
 const API_URL = 'http://localhost:3000/api';
+const socket = io('http://localhost:3000');
 
 let currentQuestionIndex = 0;
 let score = 0;
@@ -43,36 +44,31 @@ function showQuestion() {
   });
 }
 
-async function selectAnswer(selected, clickedBtn) {
+function selectAnswer(selected, clickedBtn) {
   const q = questions[currentQuestionIndex];
 
   // Empêche de cliquer plusieurs fois pendant qu'on affiche la correction
   const allButtons = document.querySelectorAll('.option');
   allButtons.forEach(btn => btn.onclick = null);
 
-  const response = await fetch(`${API_URL}/submit`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ questionId: q.id, selectedAnswer: selected })
-  });
-
-  const result = await response.json();
-
-  if (result.correct) {
-    score++;
-    clickedBtn.classList.add('correct');
-  } else {
-    clickedBtn.classList.add('incorrect');
-  }
-
-  setTimeout(() => {
-    currentQuestionIndex++;
-    if (currentQuestionIndex < questions.length) {
-      showQuestion();
+  // Envoi de la réponse en temps réel via Socket.IO, avec accusé de réception (ack)
+  socket.emit('quiz:answer', { questionId: q.id, selectedAnswer: selected }, (result) => {
+    if (result.correct) {
+      score++;
+      clickedBtn.classList.add('correct');
     } else {
-      showResult();
+      clickedBtn.classList.add('incorrect');
     }
-  }, 800);
+
+    setTimeout(() => {
+      currentQuestionIndex++;
+      if (currentQuestionIndex < questions.length) {
+        showQuestion();
+      } else {
+        showResult();
+      }
+    }, 800);
+  });
 }
 
 function showResult() {

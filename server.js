@@ -1,11 +1,16 @@
 const express = require('express');
 const cors = require('cors');
 const path = require('path');
+const http = require('http');
+const { Server } = require('socket.io');
 const mediaRouter = require('./routes/media');
 const usersRouter = require('./routes/users');
 const prisma = require('./lib/prisma');
+const { submitAnswer } = require('./lib/answers');
 
 const app = express();
+const httpServer = http.createServer(app);
+const io = new Server(httpServer, { cors: { origin: '*' } });
 const port = 3000;
 
 app.use(cors());
@@ -41,15 +46,25 @@ app.patch('/api/questions/:id/image', async (req, res) => {
 
 // Route pour soumettre une réponse
 app.post('/api/submit', async (req, res) => {
-  const { questionId, selectedAnswer } = req.body;
-  const question = await prisma.question.findUnique({ where: { id: questionId } });
+  const { questionId, selectedAnswer, userId } = req.body;
+  const result = await submitAnswer({ questionId, selectedAnswer, userId });
 
-  if (!question) return res.status(404).json({ error: "Question non trouvée" });
+  if (!result) return res.status(404).json({ error: "Question non trouvée" });
 
-  const isCorrect = question.answer === selectedAnswer;
-  res.json({ correct: isCorrect, correctAnswer: question.answer });
+  res.json(result);
 });
 
-app.listen(port, () => {
+// Communication instantanée : soumission des réponses en direct via Socket.IO
+io.on('connection', (socket) => {
+  socket.on('quiz:answer', async ({ questionId, selectedAnswer, userId } = {}, ack) => {
+    const result = await submitAnswer({ questionId, selectedAnswer, userId });
+
+    if (typeof ack !== 'function') return;
+    if (!result) return ack({ error: 'Question non trouvée' });
+    ack(result);
+  });
+});
+
+httpServer.listen(port, () => {
   console.log(`Serveur lancé sur http://localhost:${port}`);
 });
