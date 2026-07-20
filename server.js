@@ -2,6 +2,7 @@ const express = require('express');
 const cors = require('cors');
 const path = require('path');
 const mediaRouter = require('./routes/media');
+const usersRouter = require('./routes/users');
 const prisma = require('./lib/prisma');
 
 const app = express();
@@ -12,6 +13,7 @@ app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public')));
 
 app.use('/api/media', mediaRouter);
+app.use('/api/users', usersRouter);
 
 // Route pour récupérer toutes les questions (sans la bonne réponse, pour ne pas tricher)
 app.get('/api/questions', async (req, res) => {

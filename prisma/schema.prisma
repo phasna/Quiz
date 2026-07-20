@@ -14,14 +14,24 @@ datasource db {
 
 model Media {
   id           Int      @id @default(autoincrement())
-  filename     String   // nom du fichier stocké sur le disque
+  filename     String   // nom du fichier stocké (disque ou clé S3/Minio)
   originalName String   // nom du fichier tel qu'envoyé par l'utilisateur
   mimeType     String
   size         Int      // taille en octets, après redimensionnement
   width        Int
   height       Int
-  url          String   // chemin public pour accéder à l'image
+  url          String   // URL publique pour accéder à l'image (locale ou S3/Minio)
   createdAt    DateTime @default(now())
+
+  user         User?
+}
+
+model User {
+  id        Int      @id @default(autoincrement())
+  username  String   @unique
+  avatarId  Int?     @unique
+  avatar    Media?   @relation(fields: [avatarId], references: [id])
+  createdAt DateTime @default(now())
 }
 
 model Question {

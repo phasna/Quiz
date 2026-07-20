@@ -2,14 +2,12 @@ const express = require('express');
 const multer = require('multer');
 const sharp = require('sharp');
 const path = require('path');
-const fs = require('fs');
 const crypto = require('crypto');
 const prisma = require('../lib/prisma');
+const storage = require('../lib/storage');
+const cache = require('../lib/redis');
 
 const router = express.Router();
-
-const uploadsDir = path.join(__dirname, '..', 'public', 'uploads');
-fs.mkdirSync(uploadsDir, { recursive: true });
 
 const upload = multer({
   storage: multer.memoryStorage(),
@@ -23,6 +21,15 @@ const upload = multer({
   }
 });
 
+const FORMAT_MIME_TYPES = {
+  jpeg: 'image/jpeg',
+  png: 'image/png',
+  webp: 'image/webp',
+  avif: 'image/avif'
+};
+const MAX_TRANSFORM_DIMENSION = 2000;
+const TRANSFORM_CACHE_TTL = Number(process.env.TRANSFORM_CACHE_TTL || 3600);
+
 // POST /api/media/upload — upload d'une image avec redimensionnement automatique
 router.post('/upload', upload.single('image'), async (req, res, next) => {
   try {
@@ -32,12 +39,13 @@ router.post('/upload', upload.single('image'), async (req, res, next) => {
 
     const extension = path.extname(req.file.originalname).toLowerCase() || '.jpg';
     const filename = `${Date.now()}-${crypto.randomBytes(8).toString('hex')}${extension}`;
-    const filePath = path.join(uploadsDir, filename);
 
-    // Redimensionne l'image (largeur max 800px, hauteur automatique) avant de l'écrire sur le disque
-    const info = await sharp(req.file.buffer)
+    // Redimensionne l'image (largeur max 800px, hauteur automatique) avant de la stocker
+    const { data: buffer, info } = await sharp(req.file.buffer)
       .resize({ width: 800, withoutEnlargement: true })
-      .toFile(filePath);
+      .toBuffer({ resolveWithObject: true });
+
+    const url = await storage.saveFile(buffer, filename, req.file.mimetype);
 
     const media = await prisma.media.create({
       data: {
@@ -47,7 +55,7 @@ router.post('/upload', upload.single('image'), async (req, res, next) => {
         size: info.size,
         width: info.width,
         height: info.height,
-        url: `/uploads/${filename}`
+        url
       }
     });
 
@@ -70,12 +78,68 @@ router.get('/:id', async (req, res) => {
   res.json(media);
 });
 
-// DELETE /api/media/:id — supprime le fichier sur disque et l'entrée en base
+// GET /api/media/:id/transform — transformation à la volée (resize/format), avec cache Redis
+router.get('/:id/transform', async (req, res, next) => {
+  try {
+    const media = await prisma.media.findUnique({ where: { id: Number(req.params.id) } });
+    if (!media) return res.status(404).json({ error: 'Média non trouvé' });
+
+    const width = req.query.width ? Number(req.query.width) : undefined;
+    const height = req.query.height ? Number(req.query.height) : undefined;
+    const quality = req.query.quality ? Number(req.query.quality) : undefined;
+    const format = req.query.format;
+
+    if (width !== undefined && (!Number.isInteger(width) || width <= 0 || width > MAX_TRANSFORM_DIMENSION)) {
+      return res.status(400).json({ error: `"width" doit être un entier entre 1 et ${MAX_TRANSFORM_DIMENSION}` });
+    }
+    if (height !== undefined && (!Number.isInteger(height) || height <= 0 || height > MAX_TRANSFORM_DIMENSION)) {
+      return res.status(400).json({ error: `"height" doit être un entier entre 1 et ${MAX_TRANSFORM_DIMENSION}` });
+    }
+    if (format !== undefined && !FORMAT_MIME_TYPES[format]) {
+      return res.status(400).json({ error: `"format" doit être l'un de : ${Object.keys(FORMAT_MIME_TYPES).join(', ')}` });
+    }
+    if (quality !== undefined && (!Number.isInteger(quality) || quality < 1 || quality > 100)) {
+      return res.status(400).json({ error: '"quality" doit être un entier entre 1 et 100' });
+    }
+
+    const cacheKey = `media:transform:${media.id}:${width || ''}x${height || ''}:${format || 'orig'}:${quality || ''}`;
+    const contentType = format ? FORMAT_MIME_TYPES[format] : media.mimeType;
+
+    const cached = await cache.getCache(cacheKey);
+    if (cached) {
+      res.set('Content-Type', contentType);
+      res.set('X-Cache', 'HIT');
+      return res.send(Buffer.from(cached, 'base64'));
+    }
+
+    const original = await storage.getBuffer(media.filename);
+    let pipeline = sharp(original);
+
+    if (width || height) {
+      pipeline = pipeline.resize({ width, height, withoutEnlargement: true });
+    }
+    if (format) {
+      pipeline = pipeline.toFormat(format, quality ? { quality } : undefined);
+    }
+
+    const transformed = await pipeline.toBuffer();
+
+    await cache.setCache(cacheKey, transformed.toString('base64'), TRANSFORM_CACHE_TTL);
+
+    res.set('Content-Type', contentType);
+    res.set('X-Cache', 'MISS');
+    res.send(transformed);
+  } catch (err) {
+    next(err);
+  }
+});
+
+// DELETE /api/media/:id — supprime le fichier stocké et l'entrée en base
 router.delete('/:id', async (req, res) => {
   const media = await prisma.media.findUnique({ where: { id: Number(req.params.id) } });
   if (!media) return res.status(404).json({ error: 'Média non trouvé' });
 
-  fs.rm(path.join(uploadsDir, media.filename), { force: true }, () => {});
+  await storage.deleteFile(media.filename);
   await prisma.media.delete({ where: { id: media.id } });
 
   res.status(204).send();
