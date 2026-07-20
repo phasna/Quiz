@@ -1,8 +1,14 @@
-const prisma = require('./prisma');
+import prisma from './prisma';
+
+interface SubmitAnswerInput {
+  questionId: number | string;
+  selectedAnswer: string;
+  userId?: number | string | null;
+}
 
 // Vérifie une réponse et l'enregistre en base. Utilisé à la fois par la route
 // REST (/api/submit) et par le canal temps réel Socket.IO.
-async function submitAnswer({ questionId, selectedAnswer, userId }) {
+export async function submitAnswer({ questionId, selectedAnswer, userId }: SubmitAnswerInput) {
   const question = await prisma.question.findUnique({ where: { id: Number(questionId) } });
   if (!question) return null;
 
@@ -19,5 +25,3 @@ async function submitAnswer({ questionId, selectedAnswer, userId }) {
 
   return { correct: isCorrect, correctAnswer: question.answer };
 }
-
-module.exports = { submitAnswer };

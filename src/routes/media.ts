@@ -1,11 +1,11 @@
-const express = require('express');
-const multer = require('multer');
-const sharp = require('sharp');
-const path = require('path');
-const crypto = require('crypto');
-const prisma = require('../lib/prisma');
-const storage = require('../lib/storage');
-const cache = require('../lib/redis');
+import express, { Request, Response, NextFunction } from 'express';
+import multer from 'multer';
+import sharp, { FormatEnum } from 'sharp';
+import path from 'path';
+import crypto from 'crypto';
+import prisma from '../lib/prisma';
+import storage from '../lib/storage';
+import cache from '../lib/redis';
 
 const router = express.Router();
 
@@ -21,7 +21,7 @@ const upload = multer({
   }
 });
 
-const FORMAT_MIME_TYPES = {
+const FORMAT_MIME_TYPES: Record<string, string> = {
   jpeg: 'image/jpeg',
   png: 'image/png',
   webp: 'image/webp',
@@ -31,7 +31,7 @@ const MAX_TRANSFORM_DIMENSION = 2000;
 const TRANSFORM_CACHE_TTL = Number(process.env.TRANSFORM_CACHE_TTL || 3600);
 
 // POST /api/media/upload — upload d'une image avec redimensionnement automatique
-router.post('/upload', upload.single('image'), async (req, res, next) => {
+router.post('/upload', upload.single('image'), async (req: Request, res: Response, next: NextFunction) => {
   try {
     if (!req.file) {
       return res.status(400).json({ error: "Aucun fichier envoyé (champ 'image' attendu)" });
@@ -53,8 +53,8 @@ router.post('/upload', upload.single('image'), async (req, res, next) => {
         originalName: req.file.originalname,
         mimeType: req.file.mimetype,
         size: info.size,
-        width: info.width,
-        height: info.height,
+        width: info.width!,
+        height: info.height!,
         url
       }
     });
@@ -66,20 +66,20 @@ router.post('/upload', upload.single('image'), async (req, res, next) => {
 });
 
 // GET /api/media — liste de tous les médias
-router.get('/', async (req, res) => {
+router.get('/', async (req: Request, res: Response) => {
   const medias = await prisma.media.findMany({ orderBy: { id: 'desc' } });
   res.json(medias);
 });
 
 // GET /api/media/:id — un média précis
-router.get('/:id', async (req, res) => {
+router.get('/:id', async (req: Request, res: Response) => {
   const media = await prisma.media.findUnique({ where: { id: Number(req.params.id) } });
   if (!media) return res.status(404).json({ error: 'Média non trouvé' });
   res.json(media);
 });
 
 // GET /api/media/:id/transform — transformation à la volée (resize/format), avec cache Redis
-router.get('/:id/transform', async (req, res, next) => {
+router.get('/:id/transform', async (req: Request, res: Response, next: NextFunction) => {
   try {
     const media = await prisma.media.findUnique({ where: { id: Number(req.params.id) } });
     if (!media) return res.status(404).json({ error: 'Média non trouvé' });
@@ -87,7 +87,7 @@ router.get('/:id/transform', async (req, res, next) => {
     const width = req.query.width ? Number(req.query.width) : undefined;
     const height = req.query.height ? Number(req.query.height) : undefined;
     const quality = req.query.quality ? Number(req.query.quality) : undefined;
-    const format = req.query.format;
+    const format = req.query.format as string | undefined;
 
     if (width !== undefined && (!Number.isInteger(width) || width <= 0 || width > MAX_TRANSFORM_DIMENSION)) {
       return res.status(400).json({ error: `"width" doit être un entier entre 1 et ${MAX_TRANSFORM_DIMENSION}` });
@@ -119,7 +119,7 @@ router.get('/:id/transform', async (req, res, next) => {
       pipeline = pipeline.resize({ width, height, withoutEnlargement: true });
     }
     if (format) {
-      pipeline = pipeline.toFormat(format, quality ? { quality } : undefined);
+      pipeline = pipeline.toFormat(format as keyof FormatEnum, quality ? { quality } : undefined);
     }
 
     const transformed = await pipeline.toBuffer();
@@ -135,7 +135,7 @@ router.get('/:id/transform', async (req, res, next) => {
 });
 
 // DELETE /api/media/:id — supprime le fichier stocké et l'entrée en base
-router.delete('/:id', async (req, res) => {
+router.delete('/:id', async (req: Request, res: Response) => {
   const media = await prisma.media.findUnique({ where: { id: Number(req.params.id) } });
   if (!media) return res.status(404).json({ error: 'Média non trouvé' });
 
@@ -146,8 +146,8 @@ router.delete('/:id', async (req, res) => {
 });
 
 // Gestion des erreurs d'upload (fichier trop gros, mauvais format, etc.)
-router.use((err, req, res, next) => {
+router.use((err: Error, req: Request, res: Response, next: NextFunction) => {
   res.status(400).json({ error: err.message });
 });
 
-module.exports = router;
+export default router;

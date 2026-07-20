@@ -1,25 +1,34 @@
-const fs = require('fs');
-const path = require('path');
+import fs from 'fs';
+import path from 'path';
+import {
+  S3Client,
+  HeadBucketCommand,
+  CreateBucketCommand,
+  PutBucketPolicyCommand,
+  PutObjectCommand,
+  GetObjectCommand,
+  DeleteObjectCommand,
+  type GetObjectCommandOutput
+} from '@aws-sdk/client-s3';
 
 const driver = process.env.STORAGE_DRIVER === 's3' ? 's3' : 'local';
 
-const uploadsDir = path.join(__dirname, '..', 'public', 'uploads');
+const uploadsDir = path.join(process.cwd(), 'public', 'uploads');
 fs.mkdirSync(uploadsDir, { recursive: true });
 
-let s3Client = null;
-let bucketReady = null;
+let s3Client: S3Client | null = null;
+let bucketReady: Promise<void> | null = null;
 
-function getS3Client() {
+function getS3Client(): S3Client {
   if (s3Client) return s3Client;
 
-  const { S3Client } = require('@aws-sdk/client-s3');
   s3Client = new S3Client({
     endpoint: process.env.S3_ENDPOINT,
     region: process.env.S3_REGION || 'us-east-1',
     forcePathStyle: true,
     credentials: {
-      accessKeyId: process.env.S3_ACCESS_KEY,
-      secretAccessKey: process.env.S3_SECRET_KEY
+      accessKeyId: process.env.S3_ACCESS_KEY!,
+      secretAccessKey: process.env.S3_SECRET_KEY!
     }
   });
   return s3Client;
@@ -27,16 +36,10 @@ function getS3Client() {
 
 // S'assure que le bucket existe et qu'il autorise la lecture publique
 // (les images sont consommées directement en <img src>)
-async function ensureBucket() {
+async function ensureBucket(): Promise<void> {
   if (bucketReady) return bucketReady;
 
   bucketReady = (async () => {
-    const {
-      HeadBucketCommand,
-      CreateBucketCommand,
-      PutBucketPolicyCommand
-    } = require('@aws-sdk/client-s3');
-
     const client = getS3Client();
     const bucket = process.env.S3_BUCKET;
 
@@ -67,9 +70,8 @@ async function ensureBucket() {
   return bucketReady;
 }
 
-async function saveFile(buffer, filename, mimeType) {
+async function saveFile(buffer: Buffer, filename: string, mimeType: string): Promise<string> {
   if (driver === 's3') {
-    const { PutObjectCommand } = require('@aws-sdk/client-s3');
     await ensureBucket();
 
     await getS3Client().send(new PutObjectCommand({
@@ -86,18 +88,17 @@ async function saveFile(buffer, filename, mimeType) {
   return `/uploads/${filename}`;
 }
 
-async function getBuffer(filename) {
+async function getBuffer(filename: string): Promise<Buffer> {
   if (driver === 's3') {
-    const { GetObjectCommand } = require('@aws-sdk/client-s3');
     await ensureBucket();
 
-    const response = await getS3Client().send(new GetObjectCommand({
+    const response: GetObjectCommandOutput = await getS3Client().send(new GetObjectCommand({
       Bucket: process.env.S3_BUCKET,
       Key: filename
     }));
 
-    const chunks = [];
-    for await (const chunk of response.Body) {
+    const chunks: Buffer[] = [];
+    for await (const chunk of response.Body as AsyncIterable<Buffer>) {
       chunks.push(chunk);
     }
     return Buffer.concat(chunks);
@@ -106,9 +107,8 @@ async function getBuffer(filename) {
   return fs.promises.readFile(path.join(uploadsDir, filename));
 }
 
-async function deleteFile(filename) {
+async function deleteFile(filename: string): Promise<void> {
   if (driver === 's3') {
-    const { DeleteObjectCommand } = require('@aws-sdk/client-s3');
     await ensureBucket();
 
     await getS3Client().send(new DeleteObjectCommand({
@@ -121,4 +121,4 @@ async function deleteFile(filename) {
   await fs.promises.rm(path.join(uploadsDir, filename), { force: true });
 }
 
-module.exports = { driver, saveFile, getBuffer, deleteFile };
+export default { driver, saveFile, getBuffer, deleteFile };

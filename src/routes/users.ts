@@ -1,10 +1,10 @@
-const express = require('express');
-const prisma = require('../lib/prisma');
+import express, { Request, Response } from 'express';
+import prisma from '../lib/prisma';
 
 const router = express.Router();
 
 // POST /api/users — crée un utilisateur
-router.post('/', async (req, res) => {
+router.post('/', async (req: Request, res: Response) => {
   const { username } = req.body;
   if (!username) {
     return res.status(400).json({ error: 'Le champ "username" est requis' });
@@ -14,7 +14,7 @@ router.post('/', async (req, res) => {
     const user = await prisma.user.create({ data: { username } });
     res.status(201).json(user);
   } catch (err) {
-    if (err.code === 'P2002') {
+    if ((err as { code?: string }).code === 'P2002') {
       return res.status(409).json({ error: 'Ce nom d\'utilisateur existe déjà' });
     }
     throw err;
@@ -22,7 +22,7 @@ router.post('/', async (req, res) => {
 });
 
 // GET /api/users — liste des utilisateurs (avec leur avatar)
-router.get('/', async (req, res) => {
+router.get('/', async (req: Request, res: Response) => {
   const users = await prisma.user.findMany({
     include: { avatar: true },
     orderBy: { id: 'asc' }
@@ -31,7 +31,7 @@ router.get('/', async (req, res) => {
 });
 
 // GET /api/users/:id — un utilisateur précis (avec son avatar)
-router.get('/:id', async (req, res) => {
+router.get('/:id', async (req: Request, res: Response) => {
   const user = await prisma.user.findUnique({
     where: { id: Number(req.params.id) },
     include: { avatar: true }
@@ -41,7 +41,7 @@ router.get('/:id', async (req, res) => {
 });
 
 // PATCH /api/users/:id/avatar — lie un Media (déjà uploadé via /api/media/upload) comme avatar
-router.patch('/:id/avatar', async (req, res) => {
+router.patch('/:id/avatar', async (req: Request, res: Response) => {
   const { mediaId } = req.body;
 
   if (mediaId !== null && mediaId !== undefined) {
@@ -57,11 +57,11 @@ router.patch('/:id/avatar', async (req, res) => {
     });
     res.json(user);
   } catch (err) {
-    if (err.code === 'P2025') {
+    if ((err as { code?: string }).code === 'P2025') {
       return res.status(404).json({ error: 'Utilisateur non trouvé' });
     }
     throw err;
   }
 });
 
-module.exports = router;
+export default router;

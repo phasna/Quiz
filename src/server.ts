@@ -1,12 +1,12 @@
-const express = require('express');
-const cors = require('cors');
-const path = require('path');
-const http = require('http');
-const { Server } = require('socket.io');
-const mediaRouter = require('./routes/media');
-const usersRouter = require('./routes/users');
-const prisma = require('./lib/prisma');
-const { submitAnswer } = require('./lib/answers');
+import express from 'express';
+import cors from 'cors';
+import path from 'path';
+import http from 'http';
+import { Server } from 'socket.io';
+import mediaRouter from './routes/media';
+import usersRouter from './routes/users';
+import prisma from './lib/prisma';
+import { submitAnswer } from './lib/answers';
 
 const app = express();
 const httpServer = http.createServer(app);
@@ -15,7 +15,9 @@ const port = 3000;
 
 app.use(cors());
 app.use(express.json());
-app.use(express.static(path.join(__dirname, 'public')));
+app.use(express.static(path.join(process.cwd(), 'public')));
+
+app.get('/hello', (req, res) => res.json({ message: 'Hello live-reload!' }));
 
 app.use('/api/media', mediaRouter);
 app.use('/api/users', usersRouter);
@@ -49,7 +51,7 @@ app.post('/api/submit', async (req, res) => {
   const { questionId, selectedAnswer, userId } = req.body;
   const result = await submitAnswer({ questionId, selectedAnswer, userId });
 
-  if (!result) return res.status(404).json({ error: "Question non trouvée" });
+  if (!result) return res.status(404).json({ error: 'Question non trouvée' });
 
   res.json(result);
 });
