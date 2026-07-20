@@ -1,0 +1,24 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm --version)",
+      "Bash(npm init *)",
+      "Bash(npm install *)",
+      "Bash(npm run *)",
+      "Bash(curl -s http://localhost:3000/api/questions)",
+      "Bash(curl -s -X POST http://localhost:3000/api/submit -H \"Content-Type: application/json\" -d '{\"questionId\":1,\"selectedAnswer\":\"Paris\"}')",
+      "Bash(mysql --version)",
+      "Bash(docker --version)",
+      "Bash(brew services *)",
+      "Bash(mysqladmin ping *)",
+      "Bash(docker info *)",
+      "Bash(mysql *)",
+      "Bash(npx prisma *)",
+      "Bash(grep -i \"^dotenv$\")",
+      "Bash(node *)",
+      "Bash(curl *)",
+      "Bash(mysqldump -u root quiz_game)",
+      "Bash(mysqldump -u root --ignore-table=quiz_game._prisma_migrations quiz_game)"
+    ]
+  }
+}
