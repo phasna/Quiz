@@ -1,7 +1,29 @@
 services:
+  # Base de données de l'app (correspond au provider "mysql" de prisma/schema.prisma)
+  db:
+    image: mysql:8.0
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+      MYSQL_DATABASE: quiz_game
+      MYSQL_USER: quiz_user
+      MYSQL_PASSWORD: quiz_password
+    ports:
+      # Exposé sur 3307 côté hôte pour éviter un conflit avec un éventuel MySQL local sur
+      # 3306 (la connexion interne entre containers, elle, se fait bien sur le port 3306).
+      - "3307:3306"
+    volumes:
+      - db_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-proot"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
   minio:
     image: minio/minio
     command: server /data --console-address ":9001"
+    restart: unless-stopped
     ports:
       - "9002:9000"
       - "9001:9001"
@@ -13,8 +35,44 @@ services:
 
   redis:
     image: redis:7-alpine
+    restart: unless-stopped
     ports:
       - "6379:6379"
 
+  # Service applicatif : construit depuis le stage "builder" du Dockerfile (contient encore
+  # les devDependencies : ts-node/nodemon) et lance le serveur en mode dev avec live-reload.
+  app:
+    build:
+      context: .
+      target: builder
+    command: sh -c "npx prisma migrate deploy && npm run dev"
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      DATABASE_URL: mysql://quiz_user:quiz_password@db:3306/quiz_game
+      STORAGE_DRIVER: s3
+      S3_ENDPOINT: http://minio:9000
+      S3_PUBLIC_URL: http://localhost:9002
+      S3_ACCESS_KEY: minioadmin
+      S3_SECRET_KEY: minioadmin
+      S3_BUCKET: quiz-media
+      REDIS_URL: redis://redis:6379
+      TRANSFORM_CACHE_TTL: "3600"
+    volumes:
+      # Live-reloading : le code local remplace celui copié à la construction de l'image,
+      # nodemon (lancé par `npm run dev`) redémarre le serveur à chaque changement.
+      - ./src:/app/src
+      - ./public:/app/public
+      - ./prisma:/app/prisma
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_started
+      minio:
+        condition: service_started
+
 volumes:
   minio_data:
+  db_data:
