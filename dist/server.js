@@ -12,6 +12,10 @@ const media_1 = __importDefault(require("./routes/media"));
 const users_1 = __importDefault(require("./routes/users"));
 const prisma_1 = __importDefault(require("./lib/prisma"));
 const answers_1 = require("./lib/answers");
+const auth_1 = __importDefault(require("./routes/auth"));
+const auth_2 = require("./middlewares/auth");
+const validate_1 = require("./middlewares/validate");
+const SubmitAnswerDto_1 = require("./dto/SubmitAnswerDto");
 const app = (0, express_1.default)();
 const httpServer = http_1.default.createServer(app);
 const io = new socket_io_1.Server(httpServer, { cors: { origin: '*' } });
@@ -19,6 +23,7 @@ const port = 3000;
 app.use((0, cors_1.default)());
 app.use(express_1.default.json());
 app.use(express_1.default.static(path_1.default.join(process.cwd(), 'public')));
+app.get('/hello', (req, res) => res.json({ message: 'Hello live-reload!' }));
 app.use('/api/media', media_1.default);
 app.use('/api/users', users_1.default);
 // Route pour récupérer toutes les questions (sans la bonne réponse, pour ne pas tricher)
@@ -43,25 +48,17 @@ app.patch('/api/questions/:id/image', async (req, res) => {
         res.status(404).json({ error: 'Question non trouvée' });
     }
 });
+app.use('/api/auth', auth_1.default);
 // Route pour soumettre une réponse
-app.post('/api/submit', async (req, res) => {
+app.post('/api/submit', auth_2.requireAuth, (0, validate_1.validateBody)(SubmitAnswerDto_1.SubmitAnswerDto), async (req, res) => {
     const { questionId, selectedAnswer, userId } = req.body;
     const result = await (0, answers_1.submitAnswer)({ questionId, selectedAnswer, userId });
     if (!result)
         return res.status(404).json({ error: 'Question non trouvée' });
     res.json(result);
 });
-// Communication instantanée : soumission des réponses en direct via Socket.IO
-io.on('connection', (socket) => {
-    socket.on('quiz:answer', async ({ questionId, selectedAnswer, userId } = {}, ack) => {
-        const result = await (0, answers_1.submitAnswer)({ questionId, selectedAnswer, userId });
-        if (typeof ack !== 'function')
-            return;
-        if (!result)
-            return ack({ error: 'Question non trouvée' });
-        ack(result);
-    });
-});
+const QuizGateway_1 = require("./ws/QuizGateway");
+new QuizGateway_1.QuizGateway(io);
 httpServer.listen(port, () => {
     console.log(`Serveur lancé sur http://localhost:${port}`);
 });

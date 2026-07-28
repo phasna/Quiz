@@ -11,6 +11,7 @@ const crypto_1 = __importDefault(require("crypto"));
 const prisma_1 = __importDefault(require("../lib/prisma"));
 const storage_1 = __importDefault(require("../lib/storage"));
 const redis_1 = __importDefault(require("../lib/redis"));
+const auth_1 = require("../middlewares/auth");
 const router = express_1.default.Router();
 const upload = (0, multer_1.default)({
     storage: multer_1.default.memoryStorage(),
@@ -32,7 +33,7 @@ const FORMAT_MIME_TYPES = {
 const MAX_TRANSFORM_DIMENSION = 2000;
 const TRANSFORM_CACHE_TTL = Number(process.env.TRANSFORM_CACHE_TTL || 3600);
 // POST /api/media/upload — upload d'une image avec redimensionnement automatique
-router.post('/upload', upload.single('image'), async (req, res, next) => {
+router.post('/upload', auth_1.requireAuth, upload.single('image'), async (req, res, next) => {
     try {
         if (!req.file) {
             return res.status(400).json({ error: "Aucun fichier envoyé (champ 'image' attendu)" });
@@ -122,7 +123,7 @@ router.get('/:id/transform', async (req, res, next) => {
     }
 });
 // DELETE /api/media/:id — supprime le fichier stocké et l'entrée en base
-router.delete('/:id', async (req, res) => {
+router.delete('/:id', auth_1.requireAuth, async (req, res) => {
     const media = await prisma_1.default.media.findUnique({ where: { id: Number(req.params.id) } });
     if (!media)
         return res.status(404).json({ error: 'Média non trouvé' });

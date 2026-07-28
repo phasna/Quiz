@@ -22,28 +22,17 @@ const app = express();
 app.use(express.json());
 app.use('/api/users', usersRouter);
 
-describe('POST /api/users', () => {
-  it('renvoie 400 si le champ username est manquant', async () => {
-    const res = await request(app).post('/api/users').send({});
-    expect(res.status).toBe(400);
-    expect(res.body.error).toMatch(/username/i);
-  });
+describe('GET /api/users', () => {
+  it('renvoie la liste des utilisateurs', async () => {
+    (prisma.user.findMany as jest.Mock).mockResolvedValue([
+      { id: 1, username: 'toto', avatarId: null, avatar: null, createdAt: new Date('2026-01-01') },
+    ]);
 
-  it('crée un utilisateur quand username est fourni', async () => {
-    (prisma.user.create as jest.Mock).mockResolvedValue({ id: 1, username: 'toto' });
+    const res = await request(app).get('/api/users');
 
-    const res = await request(app).post('/api/users').send({ username: 'toto' });
-
-    expect(res.status).toBe(201);
-    expect(res.body).toEqual({ id: 1, username: 'toto' });
-  });
-
-  it("renvoie 409 si le nom d'utilisateur existe déjà", async () => {
-    (prisma.user.create as jest.Mock).mockRejectedValue({ code: 'P2002' });
-
-    const res = await request(app).post('/api/users').send({ username: 'toto' });
-
-    expect(res.status).toBe(409);
+    expect(res.status).toBe(200);
+    expect(res.body).toHaveLength(1);
+    expect(res.body[0].username).toBe('toto');
   });
 });
 

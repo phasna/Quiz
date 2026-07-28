@@ -5,28 +5,13 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 Object.defineProperty(exports, "__esModule", { value: true });
 const express_1 = __importDefault(require("express"));
 const prisma_1 = __importDefault(require("../lib/prisma"));
+const auth_1 = require("../middlewares/auth");
 const router = express_1.default.Router();
-// POST /api/users — crée un utilisateur
-router.post('/', async (req, res) => {
-    const { username } = req.body;
-    if (!username) {
-        return res.status(400).json({ error: 'Le champ "username" est requis' });
-    }
-    try {
-        const user = await prisma_1.default.user.create({ data: { username } });
-        res.status(201).json(user);
-    }
-    catch (err) {
-        if (err.code === 'P2002') {
-            return res.status(409).json({ error: 'Ce nom d\'utilisateur existe déjà' });
-        }
-        throw err;
-    }
-});
 // GET /api/users — liste des utilisateurs (avec leur avatar)
+// La création d'utilisateur se fait désormais via POST /api/auth/register
 router.get('/', async (req, res) => {
     const users = await prisma_1.default.user.findMany({
-        include: { avatar: true },
+        select: { id: true, username: true, avatarId: true, avatar: true, createdAt: true },
         orderBy: { id: 'asc' }
     });
     res.json(users);
@@ -35,14 +20,14 @@ router.get('/', async (req, res) => {
 router.get('/:id', async (req, res) => {
     const user = await prisma_1.default.user.findUnique({
         where: { id: Number(req.params.id) },
-        include: { avatar: true }
+        select: { id: true, username: true, avatarId: true, avatar: true, createdAt: true }
     });
     if (!user)
         return res.status(404).json({ error: 'Utilisateur non trouvé' });
     res.json(user);
 });
 // PATCH /api/users/:id/avatar — lie un Media (déjà uploadé via /api/media/upload) comme avatar
-router.patch('/:id/avatar', async (req, res) => {
+router.patch('/:id/avatar', auth_1.requireAuth, async (req, res) => {
     const { mediaId } = req.body;
     if (mediaId !== null && mediaId !== undefined) {
         const media = await prisma_1.default.media.findUnique({ where: { id: Number(mediaId) } });
@@ -53,7 +38,7 @@ router.patch('/:id/avatar', async (req, res) => {
         const user = await prisma_1.default.user.update({
             where: { id: Number(req.params.id) },
             data: { avatarId: mediaId === null || mediaId === undefined ? null : Number(mediaId) },
-            include: { avatar: true }
+            select: { id: true, username: true, avatarId: true, avatar: true, createdAt: true }
         });
         res.json(user);
     }
