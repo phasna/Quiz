@@ -26,7 +26,16 @@ router.get('/:id', async (req: Request, res: Response) => {
 
 // PATCH /api/users/:id/avatar — lie un Media (déjà uploadé via /api/media/upload) comme avatar
 router.patch('/:id/avatar', requireAuth, async (req: Request, res: Response) => {
-  const { mediaId } = req.body;
+  const userId = Number(req.params.id);
+  const { mediaId } = req.body ?? {};
+
+  if (!Number.isInteger(userId)) {
+    return res.status(400).json({ error: 'Identifiant utilisateur invalide' });
+  }
+
+  if (req.body === undefined) {
+    return res.status(400).json({ error: 'Body JSON ou form-data attendu' });
+  }
 
   if (mediaId !== null && mediaId !== undefined) {
     const media = await prisma.media.findUnique({ where: { id: Number(mediaId) } });
@@ -35,7 +44,7 @@ router.patch('/:id/avatar', requireAuth, async (req: Request, res: Response) => 
 
   try {
     const user = await prisma.user.update({
-      where: { id: Number(req.params.id) },
+      where: { id: userId },
       data: { avatarId: mediaId === null || mediaId === undefined ? null : Number(mediaId) },
       select: { id: true, username: true, avatarId: true, avatar: true, createdAt: true }
     });
