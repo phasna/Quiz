@@ -12,6 +12,11 @@ export async function submitAnswer({ questionId, selectedAnswer, userId }: Submi
   const question = await prisma.question.findUnique({ where: { id: Number(questionId) } });
   if (!question) return null;
 
+  if (userId !== null && userId !== undefined) {
+    const user = await prisma.user.findUnique({ where: { id: Number(userId) } });
+    if (!user) return null;
+  }
+
   const isCorrect = question.answer === selectedAnswer;
 
   await prisma.answer.create({

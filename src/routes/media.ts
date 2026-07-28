@@ -6,6 +6,7 @@ import crypto from 'crypto';
 import prisma from '../lib/prisma';
 import storage from '../lib/storage';
 import cache from '../lib/redis';
+import { requireAuth } from '../middlewares/auth';
 
 const router = express.Router();
 
@@ -31,7 +32,7 @@ const MAX_TRANSFORM_DIMENSION = 2000;
 const TRANSFORM_CACHE_TTL = Number(process.env.TRANSFORM_CACHE_TTL || 3600);
 
 // POST /api/media/upload — upload d'une image avec redimensionnement automatique
-router.post('/upload', upload.single('image'), async (req: Request, res: Response, next: NextFunction) => {
+router.post('/upload', requireAuth, upload.single('image'), async (req: Request, res: Response, next: NextFunction) => {
   try {
     if (!req.file) {
       return res.status(400).json({ error: "Aucun fichier envoyé (champ 'image' attendu)" });
@@ -135,7 +136,7 @@ router.get('/:id/transform', async (req: Request, res: Response, next: NextFunct
 });
 
 // DELETE /api/media/:id — supprime le fichier stocké et l'entrée en base
-router.delete('/:id', async (req: Request, res: Response) => {
+router.delete('/:id', requireAuth, async (req: Request, res: Response) => {
   const media = await prisma.media.findUnique({ where: { id: Number(req.params.id) } });
   if (!media) return res.status(404).json({ error: 'Média non trouvé' });
 
