@@ -7,6 +7,12 @@ import mediaRouter from './routes/media';
 import usersRouter from './routes/users';
 import prisma from './lib/prisma';
 import { submitAnswer } from './lib/answers';
+import authRouter from './routes/auth';
+import { requireAuth } from './middlewares/auth';
+import { validateBody } from './middlewares/validate';
+import { SubmitAnswerDto } from './dto/SubmitAnswerDto';
+
+
 
 const app = express();
 const httpServer = http.createServer(app);
@@ -46,8 +52,10 @@ app.patch('/api/questions/:id/image', async (req, res) => {
   }
 });
 
+app.use('/api/auth', authRouter);
+
 // Route pour soumettre une réponse
-app.post('/api/submit', async (req, res) => {
+app.post('/api/submit', requireAuth, validateBody(SubmitAnswerDto), async (req, res) => {
   const { questionId, selectedAnswer, userId } = req.body;
   const result = await submitAnswer({ questionId, selectedAnswer, userId });
 
@@ -56,16 +64,9 @@ app.post('/api/submit', async (req, res) => {
   res.json(result);
 });
 
-// Communication instantanée : soumission des réponses en direct via Socket.IO
-io.on('connection', (socket) => {
-  socket.on('quiz:answer', async ({ questionId, selectedAnswer, userId } = {}, ack) => {
-    const result = await submitAnswer({ questionId, selectedAnswer, userId });
+import { QuizGateway } from './ws/QuizGateway';
 
-    if (typeof ack !== 'function') return;
-    if (!result) return ack({ error: 'Question non trouvée' });
-    ack(result);
-  });
-});
+new QuizGateway(io);
 
 httpServer.listen(port, () => {
   console.log(`Serveur lancé sur http://localhost:${port}`);
