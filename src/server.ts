@@ -2,7 +2,6 @@ import express from 'express';
 import cors from 'cors';
 import path from 'path';
 import http from 'http';
-import multer from 'multer';
 import { Server } from 'socket.io';
 import mediaRouter from './routes/media';
 import usersRouter from './routes/users';
@@ -19,7 +18,6 @@ const app = express();
 const httpServer = http.createServer(app);
 const io = new Server(httpServer, { cors: { origin: '*' } });
 const port = 3000;
-const formParser = multer().none();
 
 app.use(cors());
 app.use(express.json());
@@ -41,7 +39,7 @@ app.get('/api/questions', async (req, res) => {
 });
 
 // Route pour associer une image (déjà uploadée via /api/media/upload) à une question
-app.patch('/api/questions/:id/image', formParser, async (req, res) => {
+app.patch('/api/questions/:id/image', async (req, res) => {
   const questionId = Number(req.params.id);
   const { imageUrl } = req.body ?? {};
 

@@ -1,10 +1,8 @@
 import express, { Request, Response } from 'express';
-import multer from 'multer';
 import prisma from '../lib/prisma';
 import { requireAuth } from '../middlewares/auth';
 
 const router = express.Router();
-const formParser = multer().none();
 
 // GET /api/users — liste des utilisateurs (avec leur avatar)
 // La création d'utilisateur se fait désormais via POST /api/auth/register
@@ -27,7 +25,7 @@ router.get('/:id', async (req: Request, res: Response) => {
 });
 
 // PATCH /api/users/:id/avatar — lie un Media (déjà uploadé via /api/media/upload) comme avatar
-router.patch('/:id/avatar', requireAuth, formParser, async (req: Request, res: Response) => {
+router.patch('/:id/avatar', requireAuth, async (req: Request, res: Response) => {
   const userId = Number(req.params.id);
   const { mediaId } = req.body ?? {};
 
