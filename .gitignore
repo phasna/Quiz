@@ -1,3 +1,6 @@
 node_modules/
 .env
 public/uploads/
+.claude/
+doc/
+doc /
