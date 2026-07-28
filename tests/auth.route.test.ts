@@ -88,6 +88,10 @@ describe('POST /api/auth/login', () => {
     process.env.JWT_SECRET = 'test-secret';
   });
 
+  afterEach(() => {
+    process.env.JWT_SECRET = 'test-secret';
+  });
+
   it('retourne un token si les identifiants sont corrects', async () => {
     (prisma.user.findUnique as jest.Mock).mockResolvedValue({
       id: 1,
@@ -146,5 +150,23 @@ describe('POST /api/auth/login', () => {
 
     expect(res.status).toBe(400);
     expect(res.body.error).toBe('Validation échouée');
+  });
+
+  it("renvoie 500 si JWT_SECRET n'est pas configuré", async () => {
+    delete process.env.JWT_SECRET;
+    (prisma.user.findUnique as jest.Mock).mockResolvedValue({
+      id: 1,
+      username: 'alice',
+      password: 'hashed-password',
+    });
+    (bcrypt.compare as jest.Mock).mockResolvedValue(true);
+
+    const res = await request(app)
+      .post('/api/auth/login')
+      .send({ username: 'alice', password: 'secret123' });
+
+    expect(res.status).toBe(500);
+    expect(res.body.error).toBe('Configuration serveur invalide');
+    expect(jwt.sign).not.toHaveBeenCalled();
   });
 });

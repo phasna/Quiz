@@ -1,0 +1,26 @@
+meta {
+  name: Upload Media
+  type: http
+  seq: 2
+}
+
+post {
+  url: http://localhost:3000/api/media/upload
+  body: multipart-form
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{token}}
+}
+
+body:multipart-form {
+  image: @file(/Users/phasna/Documents/ESGI/Node/Quiz/public/uploads/1785233385110-63e451198c0df436.png)
+}
+
+script:post-response {
+  const body = res.getBody();
+  if (body?.id) {
+    bru.setVar("mediaId", body.id);
+  }
+}

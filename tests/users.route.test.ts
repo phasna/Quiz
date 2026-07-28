@@ -1,4 +1,4 @@
-// Tests d'intégration légers de la route POST /api/users.
+// Tests d'intégration de la route POST /api/users.
 // prisma est mocké : pas besoin de base de données réelle pour ces tests.
 jest.mock('../src/lib/prisma', () => ({
   __esModule: true,
@@ -55,6 +55,7 @@ describe('PATCH /api/users/:id/avatar', () => {
   const authHeader = { Authorization: 'Bearer valid-token' };
 
   beforeEach(() => {
+    process.env.JWT_SECRET = 'test-secret';
     (jwt.verify as jest.Mock).mockReturnValue({ sub: 1 });
   });
 

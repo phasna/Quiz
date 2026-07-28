@@ -3,6 +3,7 @@ import jwt from 'jsonwebtoken';
 import { validate } from 'class-validator';
 import { plainToInstance } from 'class-transformer';
 import { submitAnswer } from '../lib/answers';
+import { getJwtSecret } from '../lib/jwt';
 import { SubmitAnswerDto } from '../dto/SubmitAnswerDto';
 
 export class QuizGateway {
@@ -14,8 +15,14 @@ export class QuizGateway {
   private attachUserIfPresent(socket: Socket, next: (err?: Error) => void) {
     const token = socket.handshake.auth?.token;
     if (!token) return next();
+    let secret: string;
     try {
-      (socket.data as any).user = jwt.verify(token, process.env.JWT_SECRET!);
+      secret = getJwtSecret();
+    } catch {
+      return next();
+    }
+    try {
+      (socket.data as any).user = jwt.verify(token, secret);
       next();
     } catch {
       next();

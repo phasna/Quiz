@@ -2,6 +2,7 @@ import express, { Request, Response } from 'express';
 import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
 import prisma from '../lib/prisma';
+import { getJwtSecret } from '../lib/jwt';
 import { validateBody } from '../middlewares/validate';
 import { RegisterDto, LoginDto } from '../dto/AuthDto';
 
@@ -27,7 +28,13 @@ router.post('/login', validateBody(LoginDto), async (req: Request, res: Response
   if (!user || !(await bcrypt.compare(password, user.password))) {
     return res.status(401).json({ error: 'Identifiants invalides' });
   }
-  const token = jwt.sign({ userId: user.id, username: user.username }, process.env.JWT_SECRET!, { expiresIn: '2h' });
+  let secret: string;
+  try {
+    secret = getJwtSecret();
+  } catch {
+    return res.status(500).json({ error: 'Configuration serveur invalide' });
+  }
+  const token = jwt.sign({ userId: user.id, username: user.username }, secret, { expiresIn: '2h' });
   res.json({ token });
 });
 

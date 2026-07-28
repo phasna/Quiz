@@ -1,0 +1,25 @@
+meta {
+  name: Set Avatar User 1
+  type: http
+  seq: 3
+}
+
+patch {
+  url: http://localhost:3000/api/users/1/avatar
+  body: json
+  auth: bearer
+}
+
+headers {
+  content-type: application/json
+}
+
+auth:bearer {
+  token: {{token}}
+}
+
+body:json {
+  {
+    "mediaId": {{mediaId}}
+  }
+}

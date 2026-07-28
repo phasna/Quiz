@@ -16,6 +16,10 @@ describe('requireAuth', () => {
     res.json({ ok: true });
   });
 
+  beforeEach(() => {
+    process.env.JWT_SECRET = 'test-secret';
+  });
+
   it('laisse passer une requête avec un bearer token valide', async () => {
     (jwt.verify as jest.Mock).mockReturnValue({ userId: 1 });
 
@@ -25,7 +29,7 @@ describe('requireAuth', () => {
 
     expect(res.status).toBe(200);
     expect(res.body).toEqual({ ok: true });
-    expect(jwt.verify).toHaveBeenCalledWith('valid-token', process.env.JWT_SECRET);
+    expect(jwt.verify).toHaveBeenCalledWith('valid-token', 'test-secret');
   });
 
   it('renvoie 401 si le header authorization est absent', async () => {
@@ -46,6 +50,18 @@ describe('requireAuth', () => {
 
     expect(res.status).toBe(401);
     expect(res.body.error).toBe('Token invalide');
+  });
+
+  it("renvoie 500 si JWT_SECRET n'est pas configuré", async () => {
+    delete process.env.JWT_SECRET;
+
+    const res = await request(app)
+      .get('/protected')
+      .set('Authorization', 'Bearer valid-token');
+
+    expect(res.status).toBe(500);
+    expect(res.body.error).toBe('Configuration serveur invalide');
+    expect(jwt.verify).not.toHaveBeenCalled();
   });
 });
 
