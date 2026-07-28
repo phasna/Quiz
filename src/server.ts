@@ -21,6 +21,7 @@ const port = 3000;
 
 app.use(cors());
 app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
 app.use(express.static(path.join(process.cwd(), 'public')));
 
 app.get('/hello', (req, res) => res.json({ message: 'Hello live-reload!' }));
@@ -39,11 +40,20 @@ app.get('/api/questions', async (req, res) => {
 
 // Route pour associer une image (déjà uploadée via /api/media/upload) à une question
 app.patch('/api/questions/:id/image', async (req, res) => {
-  const { imageUrl } = req.body;
+  const questionId = Number(req.params.id);
+  const { imageUrl } = req.body ?? {};
+
+  if (!Number.isInteger(questionId)) {
+    return res.status(400).json({ error: 'Identifiant de question invalide' });
+  }
+
+  if (req.body === undefined) {
+    return res.status(400).json({ error: 'Body JSON ou form-data attendu' });
+  }
 
   try {
     const question = await prisma.question.update({
-      where: { id: Number(req.params.id) },
+      where: { id: questionId },
       data: { imageUrl: imageUrl || null }
     });
     res.json(question);
