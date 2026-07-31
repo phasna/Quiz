@@ -31,7 +31,6 @@ const FORMAT_MIME_TYPES: Record<string, string> = {
 const MAX_TRANSFORM_DIMENSION = 2000;
 const TRANSFORM_CACHE_TTL = Number(process.env.TRANSFORM_CACHE_TTL || 3600);
 
-// POST /api/media/upload — upload d'une image avec redimensionnement automatique
 router.post('/upload', requireAuth, upload.single('image'), async (req: Request, res: Response, next: NextFunction) => {
   try {
     if (!req.file) {
@@ -41,7 +40,6 @@ router.post('/upload', requireAuth, upload.single('image'), async (req: Request,
     const extension = path.extname(req.file.originalname).toLowerCase() || '.jpg';
     const filename = `${Date.now()}-${crypto.randomBytes(8).toString('hex')}${extension}`;
 
-    // Redimensionne l'image (largeur max 800px, hauteur automatique) avant de la stocker
     const { data: buffer, info } = await sharp(req.file.buffer)
       .resize({ width: 800, withoutEnlargement: true })
       .toBuffer({ resolveWithObject: true });
@@ -66,20 +64,17 @@ router.post('/upload', requireAuth, upload.single('image'), async (req: Request,
   }
 });
 
-// GET /api/media — liste de tous les médias
 router.get('/', async (req: Request, res: Response) => {
   const medias = await prisma.media.findMany({ orderBy: { id: 'desc' } });
   res.json(medias);
 });
 
-// GET /api/media/:id — un média précis
 router.get('/:id', async (req: Request, res: Response) => {
   const media = await prisma.media.findUnique({ where: { id: Number(req.params.id) } });
   if (!media) return res.status(404).json({ error: 'Média non trouvé' });
   res.json(media);
 });
 
-// GET /api/media/:id/transform — transformation à la volée (resize/format), avec cache Redis
 router.get('/:id/transform', async (req: Request, res: Response, next: NextFunction) => {
   try {
     const media = await prisma.media.findUnique({ where: { id: Number(req.params.id) } });
@@ -103,7 +98,8 @@ router.get('/:id/transform', async (req: Request, res: Response, next: NextFunct
       return res.status(400).json({ error: '"quality" doit être un entier entre 1 et 100' });
     }
 
-    const cacheKey = `media:transform:${media.id}:${width || ''}x${height || ''}:${format || 'orig'}:${quality || ''}`;
+    const cacheKey = `media:transform:${media.id}:${width || 
+    ''}x${height || ''}:${format || 'orig'}:${quality || ''}`;
     const contentType = format ? FORMAT_MIME_TYPES[format] : media.mimeType;
 
     const cached = await cache.getCache(cacheKey);
@@ -135,7 +131,6 @@ router.get('/:id/transform', async (req: Request, res: Response, next: NextFunct
   }
 });
 
-// DELETE /api/media/:id — supprime le fichier stocké et l'entrée en base
 router.delete('/:id', requireAuth, async (req: Request, res: Response) => {
   const media = await prisma.media.findUnique({ where: { id: Number(req.params.id) } });
   if (!media) return res.status(404).json({ error: 'Média non trouvé' });

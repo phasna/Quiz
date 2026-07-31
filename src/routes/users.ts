@@ -4,8 +4,7 @@ import { requireAuth } from '../middlewares/auth';
 
 const router = express.Router();
 
-// GET /api/users — liste des utilisateurs (avec leur avatar)
-// La création d'utilisateur se fait désormais via POST /api/auth/register
+
 router.get('/', async (req: Request, res: Response) => {
   const users = await prisma.user.findMany({
     select: { id: true, username: true, avatarId: true, avatar: true, createdAt: true },
@@ -14,7 +13,6 @@ router.get('/', async (req: Request, res: Response) => {
   res.json(users);
 });
 
-// GET /api/users/:id — un utilisateur précis (avec son avatar)
 router.get('/:id', async (req: Request, res: Response) => {
   const user = await prisma.user.findUnique({
     where: { id: Number(req.params.id) },
@@ -24,7 +22,6 @@ router.get('/:id', async (req: Request, res: Response) => {
   res.json(user);
 });
 
-// PATCH /api/users/:id/avatar — lie un Media (déjà uploadé via /api/media/upload) comme avatar
 router.patch('/:id/avatar', requireAuth, async (req: Request, res: Response) => {
   const userId = Number(req.params.id);
   const { mediaId } = req.body ?? {};

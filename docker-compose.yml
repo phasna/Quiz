@@ -1,5 +1,4 @@
 services:
-  # Base de données de l'app (correspond au provider "mysql" de prisma/schema.prisma)
   db:
     image: mysql:8.0
     restart: unless-stopped
@@ -9,8 +8,7 @@ services:
       MYSQL_USER: quiz_user
       MYSQL_PASSWORD: quiz_password
     ports:
-      # Exposé sur 3307 côté hôte pour éviter un conflit avec un éventuel MySQL local sur
-      # 3306 (la connexion interne entre containers, elle, se fait bien sur le port 3306).
+
       - "3307:3306"
     volumes:
       - db_data:/var/lib/mysql
